@@ -734,3 +734,11 @@ body:not([dir="rtl"]) .history-item.favorite {
         max-width: 95%;
     }
 }
+
+
+.logo-title-container {
+  width: 120px;     /* גודל התמונה – אפשר לשנות לפי הצורך */
+  height: auto;     /* לשמור על הפרופורציות המקוריות */
+  float: right;     /* ממקם את התמונה בצד ימין של הדף */
+  margin: 10px;     /* רווח מסביב כדי שלא תידבק לטקסט או לגבול המסך */
+}
