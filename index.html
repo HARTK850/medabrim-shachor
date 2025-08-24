@@ -105,18 +105,24 @@
                 <div id="chat-container" class="card">
                     <!-- Messages will be injected here -->
                 </div>
-                <div id="chat-controls" class="chat-controls-container">
-                     <button id="continue-chat-btn" class="hidden">המשך שיחה (5 סבבים)</button>
-                     <div class="save-menu">
-                        <button id="save-chat-btn">שמור שיחה</button>
-                        <div class="save-options">
-                            <a href="#" id="save-txt">שמור כ-TXT</a>
-                            <a href="#" id="save-json">שמור כ-JSON</a>
-                            <a href="#" id="save-png">שמור כתמונה (PNG)</a>
-                        </div>
-                     </div>
-                     <button id="clear-chat-btn">נקה שיחה</button>
-                </div>
+    <!-- Chat Controls -->
+    <div id="chat-controls" class="chat-controls-container">
+        <button id="continue-chat-btn" class="hidden">המשך שיחה (5 סבבים)</button>
+        <div class="save-menu">
+            <button id="save-chat-btn">שמור שיחה</button>
+            <div class="save-options">
+                <a href="#" id="save-txt">שמור כ-TXT</a>
+                <a href="#" id="save-json">שמור כ-JSON</a>
+                <a href="#" id="save-png">שמור כתמונה (PNG)</a>
+            </div>
+        </div>
+        <button id="clear-chat-btn">נקה שיחה</button>
+        <!-- !!! NEW: Podcast Generation Button !!! -->
+        <button id="create-podcast-btn" class="btn btn-primary" style="display: none;"> <!-- Initially hidden -->
+            <span class="material-symbols-outlined">play_circle</span> צור פודקאסט שמע
+        </button>
+    </div>
+    
             </section>
         </main>
     </div>
