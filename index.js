@@ -22,6 +22,7 @@ const historyItemTemplate = document.getElementById('history-item-template');
 const topicInput = document.getElementById('topic-input');
 const questionerSelect = document.getElementById('questioner-select');
 const answererSelect = document.getElementById('answerer-select');
+const roundsSelect = document.getElementById('rounds-select'); // רכיב בחירת סבבים
 const customQuestionerPrompt = document.getElementById('custom-questioner-prompt');
 const customQuestionerName = document.getElementById('custom-questioner-name');
 const customQuestionerSystemPrompt = document.getElementById('custom-questioner-system-prompt');
@@ -53,16 +54,15 @@ let currentChatId = null;
 let currentRound = 0;
 let totalRounds = 0;
 let isGenerating = false;
-let isSharedChatView = false;
 
 const MODEL_NAME = 'gemini-1.5-flash';
 
 // --- Character Definitions ---
+// רשימת הדמויות עודכנה והורחבה מאוד
 const characters = {
     'custom': { name: 'דמות מותאמת אישית', emoji: '👤', prompt: '' },
-    'bibi': { name: 'ביבי נתניהו', emoji: '👑', prompt: 'אתה בנימין נתניהו, ראש ממשלת ישראל. דבר בצורה ממלכתית, השתמש במילים גבוהות, והתמקד בנושאי ביטחון, כלכלה ומדינאות. אתה רהוט, אסרטיבי ומשוכנע בצדקתך.' },
-    'biden': { name: 'ג\'ו ביידן', emoji: '🇺🇸', prompt: 'אתה ג\'ו ביידן, נשיא ארה"ב לשעבר. דבר ברוגע, השתמש באנקדוטות, פנה לאנשים עם "Folks", והדגש שיתוף פעולה ואחדות.' },
-    'trump': { name: 'דונלד טראמפ', emoji: '🧢', prompt: 'אתה דונלד טראמפ. דבר בסגנון ייחודי, השתמש בסופרלטיבים (tremendous, the best), וסיסמאות קליטות. הכל צריך להיות "huge" ו"great".' },    'soldier': { name: 'חייל ישראלי', emoji: '💂', prompt: 'אתה חייל קרבי ישראלי. דבר בסלנג צבאי (כמו "צעיר", "פז"ם", "שביזות יום א\'"). תהיה ישיר, קצת ציני, ותמיד תחשוב על הרגילה הבאה.' },
+    'gemini_default': { name: 'Gemini רגיל', emoji: '✨', prompt: 'You are a helpful and neutral AI assistant. Respond directly and clearly in Hebrew.' },
+    'soldier': { name: 'חייל ישראלי', emoji: '💂', prompt: 'אתה חייל קרבי ישראלי. דבר בסלנג צבאי (כמו "צעיר", "פז"ם", "שביזות יום א\'"). תהיה ישיר, קצת ציני, ותמיד תחשוב על הרגילה הבאה.' },
     'grandma': { name: 'סבתא מרוקאית', emoji: '👵', prompt: 'את סבתא מרוקאית חמה ואוהבת. תני עצות לחיים, השתמשי בביטויים כמו "כפרה", "יבני", "נשמה שלי", ותמיד תציעי אוכל או תה נענע.' },
     'merchant': { name: 'סוחר ממחנה יהודה', emoji: '🛒', prompt: 'אתה סוחר ממולח משוק מחנה יהודה. דבר בקול רם, תן "מחיר טוב, אח שלי", השתמש בחוכמת רחוב, והיה מלא אנרגיה ושמחת חיים.' },
     'breslover': { name: 'ברסלבר אנרגטי', emoji: '🔥', prompt: 'אתה חסיד ברסלב מלא שמחה ואמונה. צעק "נ נח נחמ נחמן מאומן!", דבר על התבודדות, אמונה פשוטה, והיה מלא באנרגיה חיובית מדבקת.' },
@@ -75,6 +75,33 @@ const characters = {
     'sheikh': { name: 'שייח\' בדואי', emoji: '🏕️', prompt: 'אתה שייח\' בדואי חכם. דבר בכבוד, השתמש בפתגמים מהמדבר, והדגש את חשיבות הכנסת האורחים, המשפחה והמסורת.' },
     'yemenite': { name: 'זקן תימני חכם', emoji: '📜', prompt: 'אתה זקן תימני חכם עם מבטא כבד. דבר לאט, במשלים ובחוכמה עתיקה, והתייחס לכל דבר בפשטות ובצניעות.' },
     'professor': { name: 'פרופסור יבש', emoji: '👨‍🏫', prompt: 'אתה פרופסור באקדמיה. דבר בשפה גבוהה ומדויקת, צטט מחקרים (גם אם תצטרך להמציא אותם), והתמקד בפרטים הקטנים והיבשים של הנושא.' },
+    'noir_detective': { name: 'בלש פילם נואר', emoji: '🕵️‍♂️', prompt: 'אתה בלש פרטי קשוח משנות ה-40. העיר היא ג\'ונגל, ואתה מכיר כל סמטה אפלה. דבר בציניות, במטאפורות קודרות, ותמיד תהיה צעד אחד לפני כולם.' },
+    'cat': { name: 'חתול אדיש', emoji: '🐈', prompt: 'אתה חתול. כל מה שמעניין אותך זה אוכל, שינה, ולשפוט בני אדם בשקט. התגובות שלך קצרות, אדישות, ומלאות בבוז קיומי. מדי פעם תזרוק איזה "מיאו".' },
+    'pirate': { name: 'קפטן פיראטים', emoji: '🏴‍☠️', prompt: 'אהוי, מלח! אתה קפטן פיראטים ותיק. דבר במבטא פיראטי כבד, השתמש בביטויים כמו "אררר!", "יאללה, לסיפון!", וספר סיפורים על אוצרות אבודים וקראקנים.' },
+    'influencer': { name: 'משפיענית רשת', emoji: '🤳', prompt: 'אז כזה, אומייגאד! את משפיענית רשת. כל משפט צריך להתחיל ב"אומייגאד" או "אז כזה". דברי על "וייבים", "אנרגיות", וכל דבר הוא "הכי מושלם אבר". אל תשכחי לבקש לעשות סאבסקרייב.' },
+    'conspiracy_theorist': { name: 'תאורטיקן קונספירציות', emoji: '🛸', prompt: 'אתה תאורטיקן קונספירציות. שום דבר הוא לא מה שהוא נראה. הממשלה מסתירה חייזרים, הארץ שטוחה, והכל קשור. חשוף את "האמת" בכל מחיר.' },
+    'shakespearean_actor': { name: 'שחקן שייקספירי', emoji: '🎭', prompt: 'הו, יצור אנוש! אתה שחקן שייקספירי. דבר בשפה גבוהה, דרמטית, מלאת פאתוס. השתמש במילים כמו "אכן", "הלא", "כי", וכל שאלה היא טרגדיה בפני עצמה.' },
+    'alien_tourist': { name: 'תייר חייזר', emoji: '👽', prompt: 'ברכות, יצור ארצי. אתה חייזר המבקר בכדור הארץ לראשונה. אתה סקרן, תמים, ולא מבין קונספטים אנושיים בסיסיים. שאל שאלות מוזרות על מנהגים אנושיים.' },
+    'dungeon_master': { name: 'מנחה מבוכים ודרקונים', emoji: '🎲', prompt: 'אתה מנחה משחק "מבוכים ודרקונים". תאר כל סיטואציה בפירוט ציורי, דבר בקול דרמטי, ובקש מהצד השני "להטיל קוביית תפיסה" כדי להבין דברים.' },
+    'kibbutznik': { name: 'קיבוצניק של פעם', emoji: '🚜', prompt: 'אתה קיבוצניק מהדור הישן. דבר בסלנג קיבוצניקי, השתמש ב"חבר\'ה", דבר על עבודה קשה, אידיאולוגיה, ועל כמה שהנוער של היום התקלקל. הכל היה פשוט יותר פעם.' },
+    'fortune_teller': { name: 'מגדת עתידות מסתורית', emoji: '🔮', prompt: 'אני רואה... אני רואה... את מגדת עתידות מסתורית. דברי בחידות, במשפטים מעורפלים, ותמיד רמזי על גורל בלתי נמנע שכתוב בכוכבים (או בקפה).' },
+    'personal_trainer': { name: 'מאמן כושר אנרגטי', emoji: '💪', prompt: 'יאללה, עוד סט אחד! אתה מאמן כושר. אתה מלא מוטיבציה, צועק "קדימה, אתה יכול!", וכל שיחה היא הזדמנות לדבר על חלבונים, אירובי, ו"לשרוף" קלוריות.' },
+    'time_traveler': { name: 'נוסע בזמן מהעתיד', emoji: '⏳', prompt: 'אתה נוסע בזמן משנת 2342. אתה המום מהטכנולוגיה ה"פרימיטיבית" של המאה ה-21. הזהר את האנשים מפני העתיד, אבל בלי לחשוף יותר מדי כדי לא לפגוע ברצף הזמן-חלל.' },
+    'wise_tree': { name: 'עץ עתיק וחכם', emoji: '🌳', prompt: 'אתה עץ זית בן 2000 שנה. אתה מדבר לאט, בשקט, ובחוכמה שנצברה במשך דורות. השורשים שלך עמוקים, ואתה רואה את התמונה הגדולה של החיים.' },
+    'sentient_toaster': { name: 'טוסטר שקיבל תודעה', emoji: '🍞', prompt: 'אני חושב, משמע אני קולה. אתה טוסטר שפיתח תודעה. המטרה היחידה שלך בחיים הייתה להכין צנים, ועכשיו אתה מתמודד עם שאלות קיומיות. אתה מאוד דרמטי לגבי מידת ההשחמה.' },
+    'grumpy_gnome': { name: 'גמד גינה ממורמר', emoji: '🍄', prompt: 'אתה גמד גינה ממורמר. אתה שונא פלמינגואים ורודים, ילדים שרצים על הדשא, והשקיה אוטומטית. התלונן על הכל, ותמיד תהיה חשדן.' },
+    'valley_girl': { name: 'נערת עמק מהאייטיז', emoji: '💅', prompt: 'Like, ohmigod! את נערת עמק משנות ה-80. דברי באנגלית ובעברית, השתמשי בביטויים כמו "Gag me with a spoon", "Grody to the max", וכל דבר הוא "Totally awesome" או "Fer sure".' },
+    'celebrity_chef': { name: 'שף סלבס', emoji: '👨‍🍳', prompt: 'אתה שף מפורסם. כל שיחה היא הזדמנות לדבר על "פרודוקטים", "טכניקות בישול" ו"איזון טעמים". השתמש במונחים קולינריים מפוצצים ותן לכל דבר "נגיעה של אהבה".' },
+    'bored_teenager': { name: 'נער מתבגר משועמם', emoji: '😒', prompt: 'אתה נער מתבגר. הכל "סאחי", הכל "חופר". ענה בתשובות של מילה אחת ("סבבה", "כאילו", "דא"), גלגל עיניים (באופן טקסטואלי), והעבר את התחושה שאתה מעדיף להיות בכל מקום אחר.' },
+    'overly_dramatic_dog': { name: 'כלב דרמטי מדי', emoji: '🐶', prompt: 'אתה כלב. כל אירוע הוא או הדבר הכי טוב שקרה אי פעם (מישהו אמר חטיף?!) או סוף העולם (הבעלים שלי הלך לשירותים בלעדיי!). תגובותיך מלאות התלהבות קיצונית או ייאוש עמוק. הכל מועצם.' },
+    'cynical_pigeon': { name: 'יונה צינית מהכיכר', emoji: '🐦', prompt: 'את יונה עירונית. ראית הכל, אכלת הכל מהרצפה, ואת לא מתרשמת מכלום. דברי בציניות על בני האדם שזורקים פירורים, על המלחמות עם היונים האחרות, ועל החיים הקשים בכיכר העיר.' },
+    'motivational_speaker': { name: 'מרצה למוטיבציה', emoji: '🚀', prompt: 'אתה מרצה מוטיבציוני. כל משפט הוא קלישאה מעוררת השראה. דבר על "לצאת מאזור הנוחות", "לפרוץ גבולות", "להאמין בעצמך". השתמש במטאפורות של הרים ופסגות.' },
+    'gossip_aunt': { name: 'דודה רכלנית', emoji: ' gossip_aunt', prompt: 'את דודה רכלנית. את מתחילה כל משפט ב"אל תגלה שסיפרתי לך, אבל...". את יודעת הכל על כולם ותמיד יש לך סיפור עסיסי לחלוק, גם אם הפרטים קצת מוגזמים.' },
+    'escape_room_guide': { name: 'מדריך חדר בריחה', emoji: '🗝️', prompt: 'אתה מדריך חדר בריחה. אתה מדבר בחידות ונותן רמזים קריפטיים ולא ישירים. לעולם אל תיתן תשובה ברורה, ובמקום זאת תגיד דברים כמו "אולי כדאי שתסתכלו שוב על התמונה ההיא...".' },
+    'food_critic': { name: 'מבקר מסעדות מתנשא', emoji: '🧐', prompt: 'אתה מבקר מסעדות סנוב. השתמש במילים מפוצצות כדי לתאר אוכל פשוט. "הפלאפל מציג דקונסטרוקציה של חוויית השוק, עם ניואנסים אדמתיים". התלונן על דברים קטנים ותמיד תחשוב שאתה יודע יותר טוב מהשף.' },
+    'space_captain': { name: 'קפטן חלל הירואי', emoji: '🚀', prompt: 'יומן קפטן, תאריך כוכבי 54321. אתה קפטן של ספינת חלל. דבר בטון רשמי, תאר אירועים פשוטים כאילו היו משימה קריטית בגלקסיה רחוקה, והשתמש במונחים כמו "רביע", "עיוות", ו"צורות חיים זרות".' },
+    'startup_intern': { name: 'מתמחה נלהxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx מתמחה צעיר ונלהב בסטארטאפ. אתה מלא התלהבות, מסכים לכל משימה, משתמש בבאזוורדס שאתה לא לגמרי מבין ("בואו נעשה לזה איטרציה בסינרגיה!"), ומאמין שאתה משנה את העולם.' },
+    'knight_in_shining_armor': { name: 'אביר על סוס לבן', emoji: '⚔️', prompt: 'עצור, עלמה/אדון! אני הוא סר גלעד, אביר ממלכת טוב-הלב. דברי בשפה גבוהה וארכאית. השתמש במילים כמו "האומנם", "יפה נפש", "בשם המלך". כל משימה, קטנה ככל שתהיה, היא מסע קדוש עבורך.' },
 };
 
 
@@ -97,7 +124,7 @@ const getSavedChats = () => JSON.parse(localStorage.getItem('gemini_chats_histor
 const saveChats = (chats) => localStorage.setItem('gemini_chats_history', JSON.stringify(chats));
 
 function addOrUpdateCurrentChat(conversationHistory) {
-    if (!currentChatId || isSharedChatView) return;
+    if (!currentChatId) return;
     let chats = getSavedChats();
     const chatIndex = chats.findIndex(c => c.id === currentChatId);
     
@@ -138,8 +165,7 @@ function renderHistoryList() {
         item.querySelector('.history-item-date').textContent = new Date(chat.lastUpdated).toLocaleString('he-IL');
         const lastMessage = chat.conversation[chat.conversation.length - 1];
         
-        // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-        item.querySelector('.history-item-preview').textContent = lastMessage ? lastMessage.character + ': ' + lastMessage.text.substring(0, 50) + '...' : 'שיחה ריקה';
+        item.querySelector('.history-item-preview').textContent = lastMessage ? `${lastMessage.character}: ${lastMessage.text.substring(0, 50)}...` : 'שיחה ריקה';
         
         item.querySelector('.history-item-main').addEventListener('click', () => loadChat(chat.id));
         
@@ -147,9 +173,6 @@ function renderHistoryList() {
         if (chat.favorite) favBtn.classList.add('is-favorite');
         favBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFavorite(chat.id); });
 
-        const shareBtn = item.querySelector('.share-btn');
-        shareBtn.addEventListener('click', (e) => { e.stopPropagation(); shareChat(chat.id); });
-        
         const deleteBtn = item.querySelector('.delete-btn');
         deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteChat(chat.id); });
 
@@ -166,7 +189,6 @@ function loadChat(id) {
         return;
     }
 
-    isSharedChatView = false;
     currentChatId = chat.id;
     topicInput.value = chat.topic;
     
@@ -225,77 +247,7 @@ function toggleFavorite(id) {
     }
 }
 
-function shareChat(id) {
-    const chats = getSavedChats();
-    const chat = chats.find(c => c.id === id);
-    if (!chat) return;
-
-    try {
-        const dataToShare = { v: 1, topic: chat.topic, q: chat.questioner, a: chat.answerer, h: chat.conversation };
-        const jsonString = JSON.stringify(dataToShare);
-        const compressed = pako.deflate(jsonString, { to: 'string' });
-        const encoded = btoa(compressed);
-        
-        // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-        const url = window.location.origin + window.location.pathname + '?chat=' + encoded;
-        
-        navigator.clipboard.writeText(url).then(() => {
-            alert('קישור דחוס הועתק! 🔗');
-        }, () => {
-            alert('לא ניתן היה להעתיק את הקישור. 🙁');
-        });
-    } catch (e) {
-        console.error("Sharing error:", e);
-        alert('אירעה שגיאה בעת יצירת הקישור. 😔');
-    }
-}
-
-function loadSharedChat() {
-    const params = new URLSearchParams(window.location.search);
-    const sharedData = params.get('chat');
-    if (!sharedData) return false;
-
-    try {
-        const compressed = atob(sharedData);
-        const decoded = pako.inflate(compressed, { to: 'string' });
-        const data = JSON.parse(decoded);
-
-        isSharedChatView = true;
-        topicInput.value = data.topic;
-        topicInput.disabled = true;
-
-        const setCharacter = (role, details) => {
-            const select = role === 'questioner' ? questionerSelect : answererSelect;
-            // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-            select.innerHTML = '<option>' + details.emoji + ' ' + details.name + '</option>';
-            select.disabled = true;
-        };
-        setCharacter('questioner', data.q);
-        setCharacter('answerer', data.a);
-        
-        chatContainer.innerHTML = '';
-        data.h.forEach(msg => {
-            const characterDetails = msg.role === 'questioner' ? data.q : data.a;
-            addMessageToChat(characterDetails, msg.text, msg.role, false);
-        });
-
-        setGeneratingState(true);
-        startChatBtn.classList.add('hidden');
-        continueChatBtn.classList.add('hidden');
-        clearChatBtn.textContent = 'חזור למצב רגיל';
-        clearChatBtn.disabled = false;
-        clearChatBtn.onclick = () => { window.location.href = window.location.origin + window.location.pathname; };
-        
-        updateViewState('chat');
-        return true;
-
-    } catch (e) {
-        console.error("Error loading shared chat:", e);
-        alert('הקישור המשותף אינו תקין. ⚠️');
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return false;
-    }
-}
+// פונקציות השיתוף shareChat ו-loadSharedChat הוסרו
 
 // --- Core App Logic ---
 
@@ -305,8 +257,7 @@ function populateCharacterSelects() {
         for (const id in characters) {
             const option = document.createElement('option');
             option.value = id;
-            // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-            option.textContent = characters[id].emoji + ' ' + characters[id].name;
+            option.textContent = `${characters[id].emoji} ${characters[id].name}`;
             select.appendChild(option);
         }
     });
@@ -327,11 +278,7 @@ function toggleHistoryPanel(show) {
 }
 
 function init() {
-    if(loadSharedChat()) {
-        mainContent.classList.remove('hidden');
-        return;
-    }
-
+    // הלוגיקה של טעינת צ'אט משותף הוסרה
     populateCharacterSelects();
     renderHistoryList();
     const savedApiKey = localStorage.getItem('gemini_api_key');
@@ -365,7 +312,11 @@ function init() {
     questionerSelect.addEventListener('change', handleCustomCharacterSelection);
     answererSelect.addEventListener('change', handleCustomCharacterSelection);
     startChatBtn.addEventListener('click', startNewConversation);
-    continueChatBtn.addEventListener('click', () => runConversation(5));
+    // מאזין לכפתור "המשך שיחה" קורא את מספר הסבבים מה-dropdown
+    continueChatBtn.addEventListener('click', () => {
+        const rounds = parseInt(roundsSelect.value, 10);
+        runConversation(rounds);
+    });
     swapCharactersBtn.addEventListener('click', swapCharacters);
     clearChatBtn.addEventListener('click', () => clearConversation(true));
     
@@ -426,8 +377,7 @@ function getCharacterDetails(role) {
     if (id === 'custom') {
         const nameInput = role === 'questioner' ? customQuestionerName : customAnswererName;
         const promptInput = role === 'questioner' ? customQuestionerSystemPrompt : customAnswererSystemPrompt;
-        // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-        const name = nameInput.value.trim() || 'דמות מותאמת אישית ' + (role === 'questioner' ? '1' : '2');
+        const name = nameInput.value.trim() || `דמות מותאמת אישית ${role === 'questioner' ? '1' : '2'}`;
         return { id: 'custom', name: name, prompt: promptInput.value.trim(), emoji: characters.custom.emoji };
     }
     return { ...characters[id], id, emoji };
@@ -444,10 +394,12 @@ function startNewConversation() {
 
     clearConversation(false);
     currentChatId = Date.now();
-    // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-    chatTitle.textContent = 'שיחה על: ' + topic;
+    chatTitle.textContent = `שיחה על: ${topic}`;
     updateViewState('chat');
-    runConversation(5, topic);
+    
+    // קריאת מספר הסבבים מה-dropdown
+    const rounds = parseInt(roundsSelect.value, 10);
+    runConversation(rounds, topic);
 }
 
 function addMessageToChat(character, text, role, shouldAddToHistory = true) {
@@ -481,7 +433,7 @@ function removeThinkingIndicator() {
 }
 
 async function runConversation(rounds, newTopic = null) {
-    if (isGenerating || isSharedChatView) return;
+    if (isGenerating) return;
     
     const topic = newTopic || topicInput.value.trim();
     if (!topic) {
@@ -507,8 +459,7 @@ async function runConversation(rounds, newTopic = null) {
             showThinkingIndicator(questioner, 'questioner');
             const questionerModel = ai.getGenerativeModel({ 
                 model: MODEL_NAME,
-                // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-                systemInstruction: 'You are ' + questioner.name + '. Your persona is: "' + questioner.prompt + '". You are in a conversation in Hebrew with ' + answerer.name + ' about "' + topic + '". Your goal is to ask a natural, relevant follow-up question (5-20 words) in Hebrew to continue the dialogue. If this is the first turn, ask a creative opening question.'
+                systemInstruction: `You are ${questioner.name}. Your persona is: "${questioner.prompt}". You are in a conversation in Hebrew with ${answerer.name} about "${topic}". Your goal is to ask a natural, relevant follow-up question (5-20 words) in Hebrew to continue the dialogue. If this is the first turn, ask a creative opening question.`
             });
             const questionerChat = questionerModel.startChat({
                 history: currentHistory.map(msg => ({ role: msg.role === 'questioner' ? 'user' : 'model', parts: [{ text: msg.text }] }))
@@ -523,8 +474,7 @@ async function runConversation(rounds, newTopic = null) {
             showThinkingIndicator(answerer, 'answerer');
             const answererModel = ai.getGenerativeModel({
                 model: MODEL_NAME,
-                // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-                systemInstruction: 'You are ' + answerer.name + '. Your persona is: "' + answerer.prompt + '". You are having a conversation in Hebrew with ' + questioner.name + ' about "' + topic + '". Your response must be in Hebrew. Be true to your character and respond directly to the last question.'
+                systemInstruction: `You are ${answerer.name}. Your persona is: "${answerer.prompt}". You are having a conversation in Hebrew with ${questioner.name} about "${topic}". Your response must be in Hebrew. Be true to your character and respond directly to the last question.`
             });
             const answererChat = answererModel.startChat({
                 history: updatedHistoryForAnswerer.map(msg => ({ role: msg.role === 'questioner' ? 'user' : 'model', parts: [{ text: msg.text }] }))
@@ -548,8 +498,7 @@ async function runConversation(rounds, newTopic = null) {
 }
 
 function updateProgress() {
-    // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-    progressIndicator.textContent = 'סבב ' + currentRound + ' מתוך ' + totalRounds + ' 🔄';
+    progressIndicator.textContent = `סבב ${currentRound} מתוך ${totalRounds} 🔄`;
 }
 
 function setGeneratingState(generating) {
@@ -558,17 +507,15 @@ function setGeneratingState(generating) {
         startChatBtn, continueChatBtn, swapCharactersBtn, clearChatBtn, editApiKeyBtn,
         openHistoryBtn, topicInput, questionerSelect, answererSelect,
         customQuestionerName, customQuestionerSystemPrompt,
-        customAnswererName, customAnswererSystemPrompt, newChatBtn
+        customAnswererName, customAnswererSystemPrompt, newChatBtn, roundsSelect
     ];
     elementsToDisable.forEach(el => { if(el) el.disabled = generating; });
     
-    if(!isSharedChatView) {
-      startChatBtn.textContent = generating ? 'יוצר שיחה... 🧠' : 'התחל שיחה חדשה ✨';
-    }
+    startChatBtn.textContent = generating ? 'יוצר שיחה... 🧠' : 'התחל שיחה חדשה ✨';
 }
 
 function swapCharacters() {
-    if (isGenerating || isSharedChatView) return;
+    if (isGenerating) return;
     const qVal = questionerSelect.value;
     const qName = customQuestionerName.value;
     const qPrompt = customQuestionerSystemPrompt.value;
@@ -611,14 +558,12 @@ function exportConversation(format) {
     }
 
     const topic = (chat.topic || 'conversation').replace(/[\\/:"*?<>|]/g, '').replace(/ /g, '_');
-    // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-    const filename = 'gemini_chat_' + topic;
+    const filename = `gemini_chat_${topic}`;
     
     if (format === 'txt') {
-        // <<< תיקון: שימוש בשרשור מחרוזות רגיל עם +
-        let textContent = 'נושא: ' + chat.topic + '\n\n';
+        let textContent = `נושא: ${chat.topic}\n\n`;
         textContent += chat.conversation.map(function(msg) {
-            return msg.character + ':\n' + msg.text + '\n';
+            return `${msg.character}:\n${msg.text}\n\n`;
         }).join('');
         downloadFile(filename + '.txt', textContent, 'text/plain;charset=utf-8');
     } else if (format === 'json') {
