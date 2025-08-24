@@ -179,7 +179,7 @@ body[dir="rtl"].history-open #app {
     color: var(--muted-text-color);
 }
 
-#edit-api-key-btn, #open-history-btn {
+#edit-api-key-btn, #open-history-btn, #new-chat-btn {
     background: transparent;
     border: 1px solid var(--border-color);
     color: var(--muted-text-color);
@@ -733,4 +733,5 @@ body:not([dir="rtl"]) .history-item.favorite {
     .chat-message {
         max-width: 95%;
     }
+
 }
