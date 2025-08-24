@@ -1,3 +1,5 @@
+    import { generatePodcastFromScript, buildSystemPromptForTTS } from './audioGenerator.js';
+    
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // --- DOM Elements ---
