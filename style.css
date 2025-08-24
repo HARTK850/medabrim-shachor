@@ -1,5 +1,5 @@
 :root {
-    /* New Luxurious Light Palette */
+    / New Luxurious Light Palette /
     --background-color: #f8f9fa;
     --surface-color: #ffffff;
     --primary-accent-color: #4263eb;
@@ -43,7 +43,7 @@ body {
     direction: rtl;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.4s ease; /* Smooth transition for overlay */
+    transition: background-color 0.4s ease; / Smooth transition for overlay /
 }
 
 body.history-open {
@@ -66,7 +66,7 @@ body[dir="rtl"].history-open #app {
     display: none !important;
 }
 
-/* Modal */
+/ Modal /
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -146,7 +146,7 @@ body[dir="rtl"].history-open #app {
 .api-key-link { font-size: 0.9rem; color: var(--muted-text-color); }
 .api-key-link a { color: var(--primary-accent-color); text-decoration: none; font-weight: 500; }
 
-/* Header */
+/ Header /
 .main-header {
     display: flex;
     justify-content: space-between;
@@ -159,12 +159,25 @@ body[dir="rtl"].history-open #app {
 .header-controls {
     display: flex;
     gap: 0.75rem;
-    order: 1; /* For RTL, puts it on the left */
+    order: 1; / For RTL, puts it on the left /
 }
 
 .header-text-content {
-    order: 2; /* For RTL, puts it on the right */
+    order: 2; / For RTL, puts it on the right /
     text-align: right;
+}
+
+.logo-title-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.logo-image {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
 }
 
 .main-header h1 {
@@ -179,7 +192,7 @@ body[dir="rtl"].history-open #app {
     color: var(--muted-text-color);
 }
 
-#edit-api-key-btn, #open-history-btn, #new-chat-btn {
+#edit-api-key-btn, #open-history-btn, #new-chat-btn { / <<< שינוי: עיצוב לכפתור הפלוס החדש /
     background: transparent;
     border: 1px solid var(--border-color);
     color: var(--muted-text-color);
@@ -208,7 +221,7 @@ body[dir="rtl"].history-open #app {
     height: 20px;
 }
 
-/* Card */
+/ Card /
 .card {
     background: var(--surface-color);
     padding: 2rem;
@@ -218,7 +231,7 @@ body[dir="rtl"].history-open #app {
     box-shadow: var(--box-shadow);
 }
 
-/* Setup Section */
+/ Setup Section /
 .setup-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -246,16 +259,6 @@ body[dir="rtl"].history-open #app {
     align-items: stretch;
     gap: 1rem;
     margin-top: 2rem;
-}
-
-@media (min-width: 768px) {
-    .setup-actions {
-        flex-direction: row;
-        justify-content: space-between;
-    }
-    .setup-actions .cta-button {
-        flex-grow: 1;
-    }
 }
 
 label {
@@ -302,7 +305,7 @@ textarea {
     resize: vertical;
 }
 
-/* Buttons */
+/ Buttons /
 button, .cta-button {
     padding: 0.85rem 1.75rem;
     border: 1px solid var(--border-color);
@@ -343,7 +346,7 @@ button:disabled {
      border: none;
 }
 
-/* Chat Section */
+/ Chat Section /
 #chat-section {
     animation: fadeIn 0.6s ease-out;
 }
@@ -477,7 +480,7 @@ button:disabled {
     animation-delay: 1s;
 }
 
-/* Message alignment & Styling */
+/ Message alignment & Styling /
 .chat-message.questioner {
     align-self: flex-start;
 }
@@ -498,10 +501,10 @@ button:disabled {
     border-top-left-radius: 0;
 }
 .chat-message.answerer .message-author {
-    color: #364fc7; /* Darker blue for answerer author */
+    color: #364fc7; / Darker blue for answerer author /
 }
 
-/* Chat Controls */
+/ Chat Controls /
 .chat-controls-container {
     display: flex;
     flex-wrap: wrap;
@@ -520,7 +523,7 @@ button:disabled {
     box-shadow: 0 4px 15px rgba(66, 99, 235, 0.15);
 }
 
-/* Save Menu */
+/ Save Menu /
 .save-menu {
     position: relative;
     display: inline-block;
@@ -558,7 +561,7 @@ button:disabled {
     display: block;
 }
 
-/* History Panel */
+/ History Panel /
 #history-panel-overlay {
     position: fixed;
     top: 0;
@@ -573,7 +576,7 @@ button:disabled {
 #history-panel {
     position: fixed;
     top: 0;
-    left: 0; /* Changed for LTR positioning in CSS, RTL handled by `dir` attribute */
+    left: 0; / Changed for LTR positioning in CSS, RTL handled by dir attribute /
     width: 380px;
     max-width: 90vw;
     height: 100%;
@@ -712,7 +715,7 @@ body:not([dir="rtl"]) .history-item.favorite {
 }
 
 
-/* Responsive */
+/ Responsive /
 @media (max-width: 768px) {
     body {
       font-size: 15px;
@@ -721,7 +724,7 @@ body:not([dir="rtl"]) .history-item.favorite {
         padding: 1.5rem 1rem;
     }
     .main-header {
-        flex-direction: column-reverse; /* Put controls above text */
+        flex-direction: column-reverse; / Put controls above text /
         align-items: flex-end;
         gap: 1rem;
     }
