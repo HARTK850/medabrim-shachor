@@ -179,7 +179,7 @@ body[dir="rtl"].history-open #app {
     color: var(--muted-text-color);
 }
 
-#edit-api-key-btn, #open-history-btn {
+#edit-api-key-btn, #open-history-btn, #new-chat-btn {
     background: transparent;
     border: 1px solid var(--border-color);
     color: var(--muted-text-color);
@@ -195,7 +195,7 @@ body[dir="rtl"].history-open #app {
     transition: all 0.2s ease;
 }
 
-#edit-api-key-btn:hover:not(:disabled), #open-history-btn:hover:not(:disabled) {
+#edit-api-key-btn:hover:not(:disabled), #open-history-btn:hover:not(:disabled), #new-chat-btn:hover:not(:disabled) {
     background-color: var(--surface-color);
     color: var(--primary-accent-color);
     border-color: var(--primary-accent-color);
@@ -203,7 +203,7 @@ body[dir="rtl"].history-open #app {
     box-shadow: 0 4px 10px rgba(66, 99, 235, 0.1);
 }
 
-#edit-api-key-btn svg, #open-history-btn svg {
+#edit-api-key-btn svg, #open-history-btn svg, #new-chat-btn svg {
     width: 20px;
     height: 20px;
 }
@@ -246,6 +246,16 @@ body[dir="rtl"].history-open #app {
     align-items: stretch;
     gap: 1rem;
     margin-top: 2rem;
+}
+
+@media (min-width: 768px) {
+    .setup-actions {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    .setup-actions .cta-button {
+        flex-grow: 1;
+    }
 }
 
 label {
