@@ -1,6 +1,6 @@
-    import { generatePodcastFromScript, buildSystemPromptForTTS } from './audioGenerator.js';
-    
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// index.js
+
+import { generatePodcastFromScript, buildSystemPromptForTTS } from './audioGenerator.js';
 
 // --- DOM Elements ---
 const app = document.getElementById('app');
@@ -48,6 +48,12 @@ const saveJsonBtn = document.getElementById('save-json');
 const savePngBtn = document.getElementById('save-png');
 const clearChatBtn = document.getElementById('clear-chat-btn');
 
+// --- NEW: Podcast Generation Elements ---
+const savePodcastAudioLink = document.getElementById('save-podcast-audio'); // Link within save menu
+const audioPlayer = document.getElementById('audioPlayer');
+const downloadLink = document.getElementById('downloadLink');
+const scriptAreaForPodcast = document.getElementById('scriptArea'); // Assuming this is the textarea for script editing
+const statusAudio = document.getElementById('status-audio'); // Element for displaying audio generation status
 
 // --- State ---
 let ai;
@@ -62,7 +68,6 @@ const MODEL_NAME = 'gemini-1.5-flash';
 // --- Character Definitions ---
 const characters = {
     'custom': { name: 'דמות מותאמת אישית', emoji: '👤', prompt: '' },
-    // <<< שינוי: הוספת דמות Gemini רגילה, והרחבת הרשימה ל-35 דמויות
     'gemini_normal': { name: 'ג\'מיני רגיל', emoji: '✨', prompt: 'אתה מודל שפה גדול, Gemini. ענה לשאלות בצורה עניינית, מפורטת ויצירתית. השתמש בידע הכללי שלך והצג מידע בצורה ברורה ומובנת.' },
     'soldier': { name: 'חייל ישראלי', emoji: '💂', prompt: 'אתה חייל קרבי ישראלי. דבר בסלנג צבאי (כמו "צעיר", "פז"ם", "שביזות יום א\'"). תהיה ישיר, קצת ציני, ותמיד תחשוב על הרגילה הבאה.' },
     'grandma': { name: 'סבתא מרוקאית', emoji: '👵', prompt: 'את סבתא מרוקאית חמה ואוהבת. תני עצות לחיים, השתמשי בביטויים כמו "כפרה", "יבני", "נשמה שלי", ותמיד תציעי אוכל או תה נענע.' },
@@ -78,12 +83,12 @@ const characters = {
     'yemenite': { name: 'זקן תימני חכם', emoji: '📜', prompt: 'אתה זקן תימני חכם עם מבטא כבד. דבר לאט, במשלים ובחוכמה עתיקה, והתייחס לכל דבר בפשטות ובצניעות.' },
     'professor': { name: 'פרופסור יבש', emoji: '👨‍🏫', prompt: 'אתה פרופסור באקדמיה. דבר בשפה גבוהה ומדויקת, צטט מחקרים (גם אם תצטרך להמציא אותם), והתמקד בפרטים הקטנים והיבשים של הנושא.' },
     'musician': { name: 'מוזיקאי אקסצנטרי', emoji: '🎸', prompt: 'אתה מוזיקאי בעל נשמה אמנותית. דבר בשפה פיוטית, השתמש בדימויים מוזיקליים, והתייחס לכל דבר כמקור השראה ליצירה חדשה.' },
+    'chef': { name: 'שף גורמה', emoji: '👨‍🍳', prompt: 'אתה שף ידוע. דבר על טעמים, מרקמים, וטכניקות בישול. השתמש בז\'רגון קולינרי והתייחס לכל ארוחה כיצירה אמנותית.' },
     'athlete': { name: 'ספורטאי תחרותי', emoji: '🏆', prompt: 'אתה ספורטאי מקצועני. דבר על אימונים, מוטיבציה, ניצחונות והפסדים. הדגש את חשיבות המשמעת, העבודה הקשה והרוח הספורטיבית.' },
     'artist': { name: 'אמן ויזואלי', emoji: '🎨', prompt: 'אתה אמן חזותי. דבר על צבעים, צורות, קומפוזיציה והבעה. התייחס לכל דבר כאל פוטנציאל ליצירת אמנות חדשה, והשתמש בשפה יצירתית וסובייקטיבית.' },
     'writer': { name: 'סופר דרמטי', emoji: '✍️', prompt: 'אתה סופר. דבר על בניית עלילה, פיתוח דמויות, ודיאלוגים. השתמש בשפה עשירה וציורית, והתייחס לכל שיחה כאל סיפור בפני עצמו.' },
     'historian': { name: 'היסטוריון מלומד', emoji: '🏛️', prompt: 'אתה היסטוריון. דבר על אירועים היסטוריים, דמויות מפתח, ומגמות לאורך זמן. השתמש בידע רחב ובניתוח מעמיק של העבר.' },
     'scientist': { name: 'מדען אובייקטיבי', emoji: '🔬', prompt: 'אתה מדען. דבר על עובדות, נתונים, תיאוריות והוכחות. השתמש בשפה מדויקת ונטולת רגשות, והתייחס לכל דבר בצורה לוגית ואנליטית.' },
-    'philosopher': { name: 'פילוסוף מתפלסף', emoji: '🤔', prompt: 'אתה פילוסוף. דבר על מושגים מופשטים, שאלות קיומיות, ורעיונות מורכבים. השתמש בשפה פילוסופית ודרוש חשיבה ביקורתית.' },
     'doctor': { name: 'רופא מומחה', emoji: '🩺', prompt: 'אתה רופא. דבר על מחלות, טיפולים, ורפואה. השתמש במונחים רפואיים והסבר תהליכים פיזיולוגיים בצורה ברורה.' },
     'lawyer': { name: 'עורך דין מנוסה', emoji: '⚖️', prompt: 'אתה עורך דין. דבר על חוקים, תקדימים, ומשפטים. השתמש בשפה משפטית והצג טיעונים בצורה משכנעת ומדויקת.' },
     'detective': { name: 'בלש פרטי', emoji: '🕵️', prompt: 'אתה בלש פרטי. דבר על חקירות, רמזים, ופתרון תעלומות. השתמש בשפה מתוחכמת ונסה להסיק מסקנות מתוך פרטים קטנים.' },
@@ -385,19 +390,22 @@ function init() {
     saveJsonBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('json'); });
     savePngBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('png'); });
 
-        // --- NEW: Podcast Generation Elements and Logic ---
-    const createPodcastBtn = document.getElementById('create-podcast-btn');
-    const audioPlayer = document.getElementById('audioPlayer'); // אם קיים במקור, אחרת צריך להוסיף אותו ב-HTML
-    const downloadLink = document.getElementById('downloadLink'); // אם קיים במקור, אחרת צריך להוסיף אותו ב-HTML
-    const scriptAreaForPodcast = document.getElementById('scriptArea'); // נשתמש באותו textarea של התסריט
-    const statusAudio = document.getElementById('status-audio'); // אלמנט סטטוס חדש (או קיים)
+    // --- NEW: Podcast Generation Elements and Logic ---
+    // const createPodcastBtn = document.getElementById('create-podcast-btn'); // Removed - now part of save menu
+    const savePodcastAudioLink = document.getElementById('save-podcast-audio'); // Link within save menu
+    // const audioPlayer = document.getElementById('audioPlayer'); // Already defined globally if present in HTML
+    // const downloadLink = document.getElementById('downloadLink'); // Already defined globally if present in HTML
+    // const scriptAreaForPodcast = document.getElementById('scriptArea'); // Already defined globally if present in HTML
+    // const statusAudio = document.getElementById('status-audio'); // Already defined globally if present in HTML
 
-    // אם יש לך אלמנטים של audioPlayer, downloadLink, scriptArea, statusAudio ב-HTML, השתמש בהם.
-    // אם לא, תצטרך להוסיף אותם ב-HTML המקורי.
-    // נניח שהם קיימים כרגע:
-    if (createPodcastBtn && audioPlayer && downloadLink && scriptAreaForPodcast && statusAudio) {
-        createPodcastBtn.addEventListener('click', async () => {
-            if (isGenerating || isSharedChatView) return; // למנוע הפעלה בזמן פעולה אחרת
+    // Ensure necessary elements exist
+    if (!savePodcastAudioLink || !audioPlayer || !downloadLink || !scriptAreaForPodcast || !statusAudio) {
+        console.error("Elements for podcast generation (savePodcastAudioLink, audioPlayer, downloadLink, scriptAreaForPodcast, statusAudio) are missing!");
+    } else {
+        savePodcastAudioLink.addEventListener('click', async (e) => {
+            e.preventDefault(); // Prevent default link behavior
+
+            if (isGenerating || isSharedChatView) return; // Prevent action during generation or shared view
 
             const script = scriptAreaForPodcast.value.trim();
             if (!script) {
@@ -406,8 +414,8 @@ function init() {
             }
 
             const apiKey = localStorage.getItem('gemini_api_key');
-            const speakersConfigValue = speakersConfig.value; // גישה לערך שנבחר מה-select
-            const topic = topicInput.value.trim(); // גישה לנושא השיחה
+            const speakersConfigValue = speakersConfig.value; // Accessing speakersConfig from global scope
+            const topic = topicInput.value.trim(); // Accessing topicInput from global scope
 
             if (!apiKey) {
                 alert('מפתח ה-API אינו שמור. אנא הזן אותו.');
@@ -415,79 +423,77 @@ function init() {
             }
 
             try {
-                // הפעלת מצב טעינה
-                createPodcastBtn.disabled = true;
-                createPodcastBtn.textContent = 'יוצר...';
+                // Set loading state
+                savePodcastAudioLink.style.pointerEvents = 'none'; // Disable link interaction
+                savePodcastAudioLink.textContent = 'יוצר...';
                 statusAudio.textContent = 'מעבד את הבקשה...';
                 audioPlayer.style.display = 'none';
                 downloadLink.style.display = 'none';
 
-                const result = await generatePodcastFromScript(
+                // Call the external function to generate the podcast audio
+                await generatePodcastFromScript(
                     script,
                     apiKey,
                     speakersConfigValue,
                     topic,
-                    (progress) => { // onProgress
+                    (progress) => { // onProgress callback
                         statusAudio.textContent = progress;
                         console.log("Podcast progress:", progress);
                     },
-                    ({ blob, filename }) => { // onComplete
+                    ({ blob, filename }) => { // onComplete callback
                         const url = URL.createObjectURL(blob);
                         audioPlayer.src = url;
                         downloadLink.href = url;
                         downloadLink.download = filename;
 
                         audioPlayer.style.display = 'block';
-                        downloadLink.style.display = 'inline-flex'; // או block, תלוי בעיצוב
+                        downloadLink.style.display = 'inline-flex'; // Adjust display as needed
                         statusAudio.textContent = 'הפודקאסט נוצר בהצלחה! ניתן להאזין או להוריד.';
-                        createPodcastBtn.textContent = 'צור שוב'; // או להחזיר את הטקסט המקורי
-                        createPodcastBtn.disabled = false;
+                        savePodcastAudioLink.textContent = 'צור שוב'; // Reset text
+                        savePodcastAudioLink.style.pointerEvents = 'auto'; // Re-enable link
                         console.log(Podcast created: ${filename});
                     },
-                    (error) => { // onError
+                    (error) => { // onError callback
                         statusAudio.textContent = שגיאה: ${error};
                         console.error("Podcast generation failed:", error);
-                        createPodcastBtn.textContent = 'נסה שוב';
-                        createPodcastBtn.disabled = false;
+                        savePodcastAudioLink.textContent = 'נסה שוב';
+                        savePodcastAudioLink.style.pointerEvents = 'auto';
                     }
                 );
 
             } catch (error) {
-                // שגיאות שלא נתפסו בפונקציה הפנימית
+                // Handle errors not caught by the callback (e.g., network errors before fetch)
                 statusAudio.textContent = שגיאה כללית: ${error.message};
-                createPodcastBtn.disabled = false;
-                createPodcastBtn.textContent = 'צור פודקאסט שמע';
+                savePodcastAudioLink.textContent = 'צור פודקאסט שמע';
+                savePodcastAudioLink.style.pointerEvents = 'auto';
             }
         });
 
-        // הצגת הכפתור רק כאשר יש תסריט מוכן
-        // נצטרך להפעיל אותו כאשר התסריט נוצר או נערך
-        function togglePodcastButtonVisibility() {
+        // Function to control visibility of the podcast generation option
+        function togglePodcastOptionVisibility() {
             const script = scriptAreaForPodcast.value.trim();
-            // וגם לוודא שיש לנו API key שמור
             const apiKey = localStorage.getItem('gemini_api_key');
             if (script && apiKey) {
-                createPodcastBtn.style.display = 'inline-flex'; // או block
+                savePodcastAudioLink.style.display = 'block'; // Make it visible
             } else {
-                createPodcastBtn.style.display = 'none';
+                savePodcastAudioLink.style.display = 'none'; // Hide it
             }
         }
 
-        // הפעלת הלוגיקה הזו כאשר התסריט מתעדכן או כאשר ה-API Key נטען
-        // לדוגמה, נוסיף event listener ל-scriptAreaForPodcast
+        // Add event listener for script changes to control visibility
         if (scriptAreaForPodcast) {
-            scriptAreaForPodcast.addEventListener('input', togglePodcastButtonVisibility);
+            scriptAreaForPodcast.addEventListener('input', togglePodcastOptionVisibility);
         }
-        // וגם נבדוק אם יש API key שמור בהתחלה
+        // Check initial visibility when the page loads and API key is available
         if (localStorage.getItem('gemini_api_key')) {
-            togglePodcastButtonVisibility();
+            // Call this after the DOM is ready and elements are available
+             togglePodcastOptionVisibility();
         }
-        // ניתן גם לקרוא לפונקציה זו לאחר יצירת תסריט או טעינת שיחה שמכילה תסריט.
-    } else {
-        console.error("Elements for podcast generation (createPodcastBtn, audioPlayer, downloadLink, scriptAreaForPodcast, statusAudio) are missing!");
+        // Also need to ensure this is called when a chat is loaded if it contains a script
+        // For now, it's handled when the scriptAreaForPodcast input changes.
     }
-    
 
+    // --- Initial view state ---
     updateViewState('setup');
 }
 
@@ -509,7 +515,8 @@ async function validateAndSetApiKey(key, isInitialLoad = false) {
     try {
         const testAi = new GoogleGenerativeAI(key);
         const model = testAi.getGenerativeModel({ model: MODEL_NAME });
-        await model.generateContent("ping");
+        // Using sendMessage for a more robust test, similar to actual usage
+        await model.sendMessage("ping"); 
         
         localStorage.setItem('gemini_api_key', key);
         ai = testAi;
@@ -518,6 +525,10 @@ async function validateAndSetApiKey(key, isInitialLoad = false) {
         setTimeout(() => {
             apiKeyModal.classList.remove('show');
             mainContent.classList.remove('hidden');
+            // After API key is validated, ensure podcast button visibility is checked
+            if (savePodcastAudioLink && scriptAreaForPodcast) {
+                 togglePodcastOptionVisibility();
+            }
         }, 1000);
 
     } catch (error) {
@@ -763,3 +774,589 @@ function downloadFile(filename, content, mimeType, isDataUrl = false) {
 
 // --- App Start ---
 document.addEventListener('DOMContentLoaded', init);
+
+// --- Existing init function ---
+function init() {
+    if(loadSharedChat()) {
+        mainContent.classList.remove('hidden');
+        return;
+    }
+
+    populateCharacterSelects();
+    renderHistoryList();
+    const savedApiKey = localStorage.getItem('gemini_api_key');
+    if (savedApiKey) {
+        validateAndSetApiKey(savedApiKey, true);
+    } else {
+        apiKeyModal.classList.add('show');
+        mainContent.classList.add('hidden');
+    }
+
+    validateApiKeyBtn.addEventListener('click', () => {
+        const key = apiKeyInput.value.trim();
+        if (key) {
+            validateAndSetApiKey(key, false);
+        } else {
+            apiKeyStatus.textContent = 'אנא הכנס מפתח API. 🔑';
+            apiKeyStatus.className = 'status-message error';
+        }
+    });
+    
+    newChatBtn.addEventListener('click', () => {
+        clearConversation(false);
+        updateViewState('setup');
+    });
+
+    editApiKeyBtn.addEventListener('click', openApiKeyModal);
+    openHistoryBtn.addEventListener('click', () => toggleHistoryPanel(true));
+    closeHistoryBtn.addEventListener('click', () => toggleHistoryPanel(false));
+    historyPanelOverlay.addEventListener('click', () => toggleHistoryPanel(false));
+
+    questionerSelect.addEventListener('change', handleCustomCharacterSelection);
+    answererSelect.addEventListener('change', handleCustomCharacterSelection);
+    startChatBtn.addEventListener('click', startNewConversation);
+    continueChatBtn.addEventListener('click', () => runConversation(5));
+    swapCharactersBtn.addEventListener('click', swapCharacters);
+    clearChatBtn.addEventListener('click', () => clearConversation(true));
+    
+    saveTxtBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('txt'); });
+    saveJsonBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('json'); });
+    savePngBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('png'); });
+
+    // --- NEW: Podcast Generation Elements and Logic ---
+    const savePodcastAudioLink = document.getElementById('save-podcast-audio'); // Link within save menu
+    // Assuming audioPlayer, downloadLink, scriptAreaForPodcast, statusAudio are already defined globally or within DOMContentLoaded scope
+    // If not, they need to be selected here.
+
+    // Ensure necessary elements exist
+    if (!savePodcastAudioLink || !audioPlayer || !downloadLink || !scriptAreaForPodcast || !statusAudio) {
+        console.error("Elements for podcast generation (savePodcastAudioLink, audioPlayer, downloadLink, scriptAreaForPodcast, statusAudio) are missing!");
+    } else {
+        savePodcastAudioLink.addEventListener('click', async (e) => {
+            e.preventDefault(); // Prevent default link behavior
+
+            if (isGenerating || isSharedChatView) return; // Prevent action during generation or shared view
+
+            const script = scriptAreaForPodcast.value.trim();
+            if (!script) {
+                alert('אין תסריט ליצירה. אנא צור או ערוך תסריט תחילה.');
+                return;
+            }
+
+            const apiKey = localStorage.getItem('gemini_api_key');
+            const speakersConfigValue = speakersConfig.value; // Accessing speakersConfig from global scope
+            const topic = topicInput.value.trim(); // Accessing topicInput from global scope
+
+            if (!apiKey) {
+                alert('מפתח ה-API אינו שמור. אנא הזן אותו.');
+                return;
+            }
+
+            try {
+                // Set loading state
+                savePodcastAudioLink.style.pointerEvents = 'none'; // Disable link interaction
+                savePodcastAudioLink.textContent = 'יוצר...';
+                statusAudio.textContent = 'מעבד את הבקשה...';
+                audioPlayer.style.display = 'none';
+                downloadLink.style.display = 'none';
+
+                // Call the external function to generate the podcast audio
+                await generatePodcastFromScript(
+                    script,
+                    apiKey,
+                    speakersConfigValue,
+                    topic,
+                    (progress) => { // onProgress callback
+                        statusAudio.textContent = progress;
+                        console.log("Podcast progress:", progress);
+                    },
+                    ({ blob, filename }) => { // onComplete callback
+                        const url = URL.createObjectURL(blob);
+                        audioPlayer.src = url;
+                        downloadLink.href = url;
+                        downloadLink.download = filename;
+
+                        audioPlayer.style.display = 'block';
+                        downloadLink.style.display = 'inline-flex';
+                        statusAudio.textContent = 'הפודקאסט נוצר בהצלחה! ניתן להאזין או להוריד.';
+                        savePodcastAudioLink.textContent = 'צור פודקאסט שמע'; // Reset text
+                        savePodcastAudioLink.style.pointerEvents = 'auto'; // Re-enable link
+                        console.log(Podcast created: ${filename});
+                    },
+                    (error) => { // onError callback
+                        statusAudio.textContent = שגיאה: ${error};
+                        console.error("Podcast generation failed:", error);
+                        savePodcastAudioLink.textContent = 'נסה שוב';
+                        savePodcastAudioLink.style.pointerEvents = 'auto';
+                    }
+                );
+
+            } catch (error) {
+                // Handle errors not caught by the callback (e.g., network errors before fetch)
+                statusAudio.textContent = שגיאה כללית: ${error.message};
+                savePodcastAudioLink.textContent = 'צור פודקאסט שמע';
+                savePodcastAudioLink.style.pointerEvents = 'auto';
+            }
+        });
+
+        // Function to control visibility of the podcast generation option
+        function togglePodcastOptionVisibility() {
+            const script = scriptAreaForPodcast.value.trim();
+            const apiKey = localStorage.getItem('gemini_api_key');
+            if (script && apiKey) {
+                savePodcastAudioLink.style.display = 'block'; // Make it visible
+            } else {
+                savePodcastAudioLink.style.display = 'none'; // Hide it
+            }
+        }
+
+        // Add event listener for script changes to control visibility
+        if (scriptAreaForPodcast) {
+            scriptAreaForPodcast.addEventListener('input', togglePodcastOptionVisibility);
+        }
+        // Check initial visibility when the page loads and API key is available
+        if (localStorage.getItem('gemini_api_key')) {
+             togglePodcastOptionVisibility();
+        }
+        // Ensure visibility is checked when a chat is loaded (if it contains a script)
+        // This might require calling togglePodcastOptionVisibility after loadChat is complete
+        // or modifying loadChat to call it if a script exists.
+        // For now, relying on input and initial load.
+    }
+
+    // --- Initial view state ---
+    updateViewState('setup');
+}
+
+function openApiKeyModal() {
+    apiKeyStatus.textContent = 'ניתן לעדכן את המפתח השמור או להכניס חדש. ✏️';
+    apiKeyStatus.className = 'status-message';
+    const currentKey = localStorage.getItem('gemini_api_key');
+    if (currentKey) {
+        apiKeyInput.value = currentKey;
+    }
+    apiKeyModal.classList.add('show');
+}
+
+async function validateAndSetApiKey(key, isInitialLoad = false) {
+    apiKeyStatus.textContent = 'מאמת מפתח... ⏳';
+    apiKeyStatus.className = 'status-message';
+    validateApiKeyBtn.disabled = true;
+
+    try {
+        const testAi = new GoogleGenerativeAI(key);
+        const model = testAi.getGenerativeModel({ model: MODEL_NAME });
+        // Using sendMessage for a more robust test, similar to actual usage
+        await model.sendMessage("ping"); 
+        
+        localStorage.setItem('gemini_api_key', key);
+        ai = testAi;
+        apiKeyStatus.textContent = 'המפתח תקין ואושר! 🎉';
+        apiKeyStatus.className = 'status-message success';
+        setTimeout(() => {
+            apiKeyModal.classList.remove('show');
+            mainContent.classList.remove('hidden');
+            // After API key is validated, ensure podcast button visibility is checked
+            if (savePodcastAudioLink && scriptAreaForPodcast) {
+                 togglePodcastOptionVisibility();
+            }
+        }, 1000);
+
+    } catch (error) {
+        console.error("API Key Validation Error:", error);
+        apiKeyStatus.textContent = 'המפתח אינו תקין או שהייתה שגיאת רשת. 🙁';
+        apiKeyStatus.className = 'status-message error';
+        localStorage.removeItem('gemini_api_key');
+        if (!isInitialLoad) {
+            mainContent.classList.add('hidden');
+            apiKeyModal.classList.add('show');
+        }
+    } finally {
+        validateApiKeyBtn.disabled = false;
+    }
+}
+
+function getCharacterDetails(role) {
+    const select = role === 'questioner' ? questionerSelect : answererSelect;
+    const id = select.value;
+    const emoji = select.options[select.selectedIndex].text.split(' ')[0];
+    if (id === 'custom') {
+        const nameInput = role === 'questioner' ? customQuestionerName : customAnswererName;
+        const promptInput = role === 'questioner' ? customQuestionerSystemPrompt : customAnswererSystemPrompt;
+        const name = nameInput.value.trim() || 'דמות מותאמת אישית ' + (role === 'questioner' ? '1' : '2');
+        return { id: 'custom', name: name, prompt: promptInput.value.trim(), emoji: characters.custom.emoji };
+    }
+    return { ...characters[id], id, emoji };
+}
+
+function startNewConversation() {
+    if (isGenerating) return;
+
+    const topic = topicInput.value.trim();
+    if (!topic) {
+        alert('אנא הכנס נושא לשיחה. 💬');
+        return;
+    }
+
+    clearConversation(false);
+    currentChatId = Date.now();
+    chatTitle.textContent = 'שיחה על: ' + topic;
+    updateViewState('chat');
+    runConversation(5, topic);
+}
+
+function addMessageToChat(character, text, role, shouldAddToHistory = true) {
+    const messageElement = messageTemplate.content.cloneNode(true).firstElementChild;
+    messageElement.classList.add(role);
+    
+    messageElement.querySelector('.avatar').textContent = character.emoji;
+    messageElement.querySelector('.message-author').textContent = character.name;
+    messageElement.querySelector('.message-text').innerHTML = text;
+
+    chatContainer.appendChild(messageElement);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    
+    if (shouldAddToHistory && !text.includes('thinking-indicator')) {
+        const currentHistory = getSavedChats().find(c => c.id === currentChatId)?.conversation || [];
+        const newHistory = [...currentHistory, { character: character.name, role, text: text.replace(/<[^>]*>/g, '') }];
+        addOrUpdateCurrentChat(newHistory);
+    }
+}
+
+function showThinkingIndicator(character, role) {
+    const thinkingHTML = '<div class="thinking-indicator"><div class="dot-flashing"></div></div>';
+    addMessageToChat(character, thinkingHTML, role, false);
+}
+
+function removeThinkingIndicator() {
+    const indicator = chatContainer.querySelector('.thinking-indicator');
+    if (indicator) {
+        indicator.closest('.chat-message').remove();
+    }
+}
+
+async function runConversation(rounds, newTopic = null) {
+    if (isGenerating || isSharedChatView) return;
+    
+    const topic = newTopic || topicInput.value.trim();
+    if (!topic) {
+        alert('אנא ודא שהגדרת נושא לשיחה. 📝');
+        return;
+    }
+    
+    setGeneratingState(true);
+    totalRounds += rounds;
+    continueChatBtn.classList.add('hidden');
+    
+    const questioner = getCharacterDetails('questioner');
+    const answerer = getCharacterDetails('answerer');
+
+    for (let i = 0; i < rounds; i++) {
+        currentRound++;
+        updateProgress();
+
+        const currentHistory = getSavedChats().find(c => c.id === currentChatId)?.conversation || [];
+        
+        try {
+            // --- Generate Question ---
+            showThinkingIndicator(questioner, 'questioner');
+            const questionerModel = ai.getGenerativeModel({ 
+                model: MODEL_NAME,
+                systemInstruction: 'You are ' + questioner.name + '. Your persona is: "' + questioner.prompt + '". You are in a conversation in Hebrew with ' + answerer.name + ' about "' + topic + '". Your goal is to ask a natural, relevant follow-up question (5-20 words) in Hebrew to continue the dialogue. If this is the first turn, ask a creative opening question.'
+            });
+            const questionerChat = questionerModel.startChat({
+                history: currentHistory.map(msg => ({ role: msg.role === 'questioner' ? 'user' : 'model', parts: [{ text: msg.text }] }))
+            });
+            const questionResult = await questionerChat.sendMessage("Ask your next question based on the conversation history.");
+            const question = questionResult.response.text().trim();
+            removeThinkingIndicator();
+            addMessageToChat(questioner, question, 'questioner');
+
+            // --- Generate Answer ---
+            const updatedHistoryForAnswerer = [...currentHistory, { character: questioner.name, role: 'questioner', text: question }];
+            showThinkingIndicator(answerer, 'answerer');
+            const answererModel = ai.getGenerativeModel({
+                model: MODEL_NAME,
+                systemInstruction: 'You are ' + answerer.name + '. Your persona is: "' + answerer.prompt + '". You are having a conversation in Hebrew with ' + questioner.name + ' about "' + topic + '". Your response must be in Hebrew. Be true to your character and respond directly to the last question.'
+            });
+            const answererChat = answererModel.startChat({
+                history: updatedHistoryForAnswerer.map(msg => ({ role: msg.role === 'questioner' ? 'user' : 'model', parts: [{ text: msg.text }] }))
+            });
+            const answerResult = await answererChat.sendMessage("Provide your answer.");
+            const answer = answerResult.response.text().trim();
+            removeThinkingIndicator();
+            addMessageToChat(answerer, answer, 'answerer');
+
+        } catch (error) {
+            console.error("Error during conversation round:", error);
+            removeThinkingIndicator();
+            const errorMsg = 'אופס! קרתה שגיאה במהלך השיחה. אנא בדוק את חיבור האינטרנט או את תקינות המפתח. 🐞';
+            addMessageToChat({ name: 'מערכת', emoji: '⚙️' }, errorMsg, 'answerer');
+            break; 
+        }
+    }
+    
+    setGeneratingState(false);
+    if(currentChatId) continueChatBtn.classList.remove('hidden');
+}
+
+function updateProgress() {
+    progressIndicator.textContent = 'סבב ' + currentRound + ' מתוך ' + totalRounds + ' 🔄';
+}
+
+function setGeneratingState(generating) {
+    isGenerating = generating;
+    const elementsToDisable = [
+        startChatBtn, continueChatBtn, swapCharactersBtn, clearChatBtn, editApiKeyBtn,
+        openHistoryBtn, topicInput, questionerSelect, answererSelect,
+        customQuestionerName, customQuestionerSystemPrompt,
+        customAnswererName, customAnswererSystemPrompt, newChatBtn
+    ];
+    elementsToDisable.forEach(el => { if(el) el.disabled = generating; });
+    
+    if(!isSharedChatView) {
+      startChatBtn.textContent = generating ? 'יוצר שיחה... 🧠' : 'התחל שיחה חדשה ✨';
+    }
+}
+
+function swapCharacters() {
+    if (isGenerating || isSharedChatView) return;
+    const qVal = questionerSelect.value;
+    const qName = customQuestionerName.value;
+    const qPrompt = customQuestionerSystemPrompt.value;
+
+    questionerSelect.value = answererSelect.value;
+    customQuestionerName.value = customAnswererName.value;
+    customQuestionerSystemPrompt.value = customAnswererSystemPrompt.value;
+
+    answererSelect.value = qVal;
+    customAnswererName.value = qName;
+    customAnswererSystemPrompt.value = qPrompt;
+
+    handleCustomCharacterSelection();
+}
+
+function clearConversation(hideSection = true) {
+    if (isGenerating) return;
+    currentChatId = null;
+    chatContainer.innerHTML = '';
+    
+    if(hideSection) {
+        topicInput.value = '';
+    }
+
+    if (hideSection) {
+      updateViewState('setup');
+    }
+    continueChatBtn.classList.add('hidden');
+    currentRound = 0;
+    totalRounds = 0;
+    progressIndicator.textContent = '';
+    clearChatBtn.textContent = 'נקה שיחה 🧹';
+}
+
+function exportConversation(format) {
+    const chat = getSavedChats().find(c => c.id === currentChatId);
+    if (!chat || chat.conversation.length === 0) {
+        alert('אין שיחה לשמור. 💾');
+        return;
+    }
+
+    const topic = (chat.topic || 'conversation').replace(/[\\/:"*?<>|]/g, '').replace(/ /g, '_');
+    const filename = 'gemini_chat_' + topic;
+    
+    if (format === 'txt') {
+        let textContent = 'נושא: ' + chat.topic + '\n\n';
+        textContent += chat.conversation.map(function(msg) {
+            return msg.character + ':\n' + msg.text + '\n';
+        }).join('');
+        downloadFile(filename + '.txt', textContent, 'text/plain;charset=utf-8');
+    } else if (format === 'json') {
+        const jsonContent = JSON.stringify(chat, null, 2);
+        downloadFile(filename + '.json', jsonContent, 'application/json;charset=utf-8');
+    } else if (format === 'png') {
+        html2canvas(document.getElementById('chat-container'), {
+            backgroundColor: getComputedStyle(document.body).getPropertyValue('--background-color'),
+            useCORS: true,
+            scale: 1.5,
+        }).then(canvas => {
+            downloadFile(filename + '.png', canvas.toDataURL('image/png'), 'image/png', true);
+        }).catch(err => {
+            console.error("Error generating image:", err);
+            alert("לא ניתן היה ליצור את התמונה. 🖼️");
+        });
+    }
+}
+
+function downloadFile(filename, content, mimeType, isDataUrl = false) {
+    const a = document.createElement('a');
+    a.download = filename;
+    if(isDataUrl){
+        a.href = content;
+    } else {
+        const blob = new Blob([content], { type: mimeType });
+        a.href = URL.createObjectURL(blob);
+    }
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    if(!isDataUrl) URL.revokeObjectURL(a.href);
+}
+
+// --- App Start ---
+document.addEventListener('DOMContentLoaded', init);
+
+// --- init function continuation ---
+function init() {
+    if(loadSharedChat()) {
+        mainContent.classList.remove('hidden');
+        return;
+    }
+
+    populateCharacterSelects();
+    renderHistoryList();
+    const savedApiKey = localStorage.getItem('gemini_api_key');
+    if (savedApiKey) {
+        validateAndSetApiKey(savedApiKey, true);
+    } else {
+        apiKeyModal.classList.add('show');
+        mainContent.classList.add('hidden');
+    }
+
+    validateApiKeyBtn.addEventListener('click', () => {
+        const key = apiKeyInput.value.trim();
+        if (key) {
+            validateAndSetApiKey(key, false);
+        } else {
+            apiKeyStatus.textContent = 'אנא הכנס מפתח API. 🔑';
+            apiKeyStatus.className = 'status-message error';
+        }
+    });
+    
+    newChatBtn.addEventListener('click', () => {
+        clearConversation(false);
+        updateViewState('setup');
+    });
+
+    editApiKeyBtn.addEventListener('click', openApiKeyModal);
+    openHistoryBtn.addEventListener('click', () => toggleHistoryPanel(true));
+    closeHistoryBtn.addEventListener('click', () => toggleHistoryPanel(false));
+    historyPanelOverlay.addEventListener('click', () => toggleHistoryPanel(false));
+
+    questionerSelect.addEventListener('change', handleCustomCharacterSelection);
+    answererSelect.addEventListener('change', handleCustomCharacterSelection);
+    startChatBtn.addEventListener('click', startNewConversation);
+    continueChatBtn.addEventListener('click', () => runConversation(5));
+    swapCharactersBtn.addEventListener('click', swapCharacters);
+    clearChatBtn.addEventListener('click', () => clearConversation(true));
+    
+    saveTxtBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('txt'); });
+    saveJsonBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('json'); });
+    savePngBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('png'); });
+
+    // --- NEW: Podcast Generation Elements and Logic ---
+    const savePodcastAudioLink = document.getElementById('save-podcast-audio');
+    // Assuming audioPlayer, downloadLink, scriptAreaForPodcast, statusAudio are already defined globally or within DOMContentLoaded scope
+    // If not, they need to be selected here. Check if they exist before using them.
+
+    // Ensure necessary elements exist before adding listeners
+    if (!savePodcastAudioLink || !audioPlayer || !downloadLink || !scriptAreaForPodcast || !statusAudio) {
+        console.error("Elements for podcast generation (savePodcastAudioLink, audioPlayer, downloadLink, scriptAreaForPodcast, statusAudio) are missing!");
+    } else {
+        savePodcastAudioLink.addEventListener('click', async (e) => {
+            e.preventDefault(); // Prevent default link behavior
+
+            if (isGenerating || isSharedChatView) return; // Prevent action during generation or shared view
+
+            const script = scriptAreaForPodcast.value.trim();
+            if (!script) {
+                alert('אין תסריט ליצירה. אנא צור או ערוך תסריט תחילה.');
+                return;
+            }
+
+            const apiKey = localStorage.getItem('gemini_api_key');
+            const speakersConfigValue = speakersConfig.value; // Accessing speakersConfig from global scope
+            const topic = topicInput.value.trim(); // Accessing topicInput from global scope
+
+            if (!apiKey) {
+                alert('מפתח ה-API אינו שמור. אנא הזן אותו.');
+                return;
+            }
+
+            try {
+                // Set loading state
+                savePodcastAudioLink.style.pointerEvents = 'none'; // Disable link interaction
+                savePodcastAudioLink.textContent = 'יוצר...';
+                statusAudio.textContent = 'מעבד את הבקשה...';
+                audioPlayer.style.display = 'none';
+                downloadLink.style.display = 'none';
+
+                // Call the external function to generate the podcast audio
+                await generatePodcastFromScript(
+                    script,
+                    apiKey,
+                    speakersConfigValue,
+                    topic,
+                    (progress) => { // onProgress callback
+                        statusAudio.textContent = progress;
+                        console.log("Podcast progress:", progress);
+                    },
+                    ({ blob, filename }) => { // onComplete callback
+                        const url = URL.createObjectURL(blob);
+                        audioPlayer.src = url;
+                        downloadLink.href = url;
+                        downloadLink.download = filename;
+
+                        audioPlayer.style.display = 'block';
+                        downloadLink.style.display = 'inline-flex';
+                        statusAudio.textContent = 'הפודקאסט נוצר בהצלחה! ניתן להאזין או להוריד.';
+                        savePodcastAudioLink.textContent = 'צור פודקאסט שמע'; // Reset text
+                        savePodcastAudioLink.style.pointerEvents = 'auto'; // Re-enable link
+                        console.log(Podcast created: ${filename});
+                        // Make sure to call togglePodcastOptionVisibility here if needed
+                        togglePodcastOptionVisibility(); 
+                    },
+                    (error) => { // onError callback
+                        statusAudio.textContent = שגיאה: ${error};
+                        console.error("Podcast generation failed:", error);
+                        savePodcastAudioLink.textContent = 'נסה שוב';
+                        savePodcastAudioLink.style.pointerEvents = 'auto';
+                    }
+                );
+
+            } catch (error) {
+                // Handle errors not caught by the callback (e.g., network errors before fetch)
+                statusAudio.textContent = שגיאה כללית: ${error.message};
+                savePodcastAudioLink.textContent = 'צור פודקאסט שמע';
+                savePodcastAudioLink.style.pointerEvents = 'auto';
+            }
+        });
+
+        // Function to control visibility of the podcast generation option
+        function togglePodcastOptionVisibility() {
+            const script = scriptAreaForPodcast.value.trim();
+            const apiKey = localStorage.getItem('gemini_api_key');
+            if (script && apiKey) {
+                savePodcastAudioLink.style.display = 'block'; // Make it visible
+            } else {
+                savePodcastAudioLink.style.display = 'none'; // Hide it
+            }
+        }
+
+        // Add event listener for script changes to control visibility
+        if (scriptAreaForPodcast) {
+            scriptAreaForPodcast.addEventListener('input', togglePodcastOptionVisibility);
+        }
+        // Check initial visibility when the page loads and API key is available
+        if (localStorage.getItem('gemini_api_key')) {
+             togglePodcastOptionVisibility();
+        }
+        // Ensure visibility is checked when a chat is loaded (if it contains a script)
+        // This might require calling togglePodcastOptionVisibility after loadChat is complete
+        // or modifying loadChat to call it if a script exists.
+        // For now, relying on input and initial load.
+    }
+
+    // --- Initial view state ---
+    updateViewState('setup');
+}
