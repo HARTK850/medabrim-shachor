@@ -385,6 +385,109 @@ function init() {
     saveJsonBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('json'); });
     savePngBtn.addEventListener('click', (e) => { e.preventDefault(); exportConversation('png'); });
 
+        // --- NEW: Podcast Generation Elements and Logic ---
+    const createPodcastBtn = document.getElementById('create-podcast-btn');
+    const audioPlayer = document.getElementById('audioPlayer'); // אם קיים במקור, אחרת צריך להוסיף אותו ב-HTML
+    const downloadLink = document.getElementById('downloadLink'); // אם קיים במקור, אחרת צריך להוסיף אותו ב-HTML
+    const scriptAreaForPodcast = document.getElementById('scriptArea'); // נשתמש באותו textarea של התסריט
+    const statusAudio = document.getElementById('status-audio'); // אלמנט סטטוס חדש (או קיים)
+
+    // אם יש לך אלמנטים של audioPlayer, downloadLink, scriptArea, statusAudio ב-HTML, השתמש בהם.
+    // אם לא, תצטרך להוסיף אותם ב-HTML המקורי.
+    // נניח שהם קיימים כרגע:
+    if (createPodcastBtn && audioPlayer && downloadLink && scriptAreaForPodcast && statusAudio) {
+        createPodcastBtn.addEventListener('click', async () => {
+            if (isGenerating || isSharedChatView) return; // למנוע הפעלה בזמן פעולה אחרת
+
+            const script = scriptAreaForPodcast.value.trim();
+            if (!script) {
+                alert('אין תסריט ליצירה. אנא צור או ערוך תסריט תחילה.');
+                return;
+            }
+
+            const apiKey = localStorage.getItem('gemini_api_key');
+            const speakersConfigValue = speakersConfig.value; // גישה לערך שנבחר מה-select
+            const topic = topicInput.value.trim(); // גישה לנושא השיחה
+
+            if (!apiKey) {
+                alert('מפתח ה-API אינו שמור. אנא הזן אותו.');
+                return;
+            }
+
+            try {
+                // הפעלת מצב טעינה
+                createPodcastBtn.disabled = true;
+                createPodcastBtn.textContent = 'יוצר...';
+                statusAudio.textContent = 'מעבד את הבקשה...';
+                audioPlayer.style.display = 'none';
+                downloadLink.style.display = 'none';
+
+                const result = await generatePodcastFromScript(
+                    script,
+                    apiKey,
+                    speakersConfigValue,
+                    topic,
+                    (progress) => { // onProgress
+                        statusAudio.textContent = progress;
+                        console.log("Podcast progress:", progress);
+                    },
+                    ({ blob, filename }) => { // onComplete
+                        const url = URL.createObjectURL(blob);
+                        audioPlayer.src = url;
+                        downloadLink.href = url;
+                        downloadLink.download = filename;
+
+                        audioPlayer.style.display = 'block';
+                        downloadLink.style.display = 'inline-flex'; // או block, תלוי בעיצוב
+                        statusAudio.textContent = 'הפודקאסט נוצר בהצלחה! ניתן להאזין או להוריד.';
+                        createPodcastBtn.textContent = 'צור שוב'; // או להחזיר את הטקסט המקורי
+                        createPodcastBtn.disabled = false;
+                        console.log(Podcast created: ${filename});
+                    },
+                    (error) => { // onError
+                        statusAudio.textContent = שגיאה: ${error};
+                        console.error("Podcast generation failed:", error);
+                        createPodcastBtn.textContent = 'נסה שוב';
+                        createPodcastBtn.disabled = false;
+                    }
+                );
+
+            } catch (error) {
+                // שגיאות שלא נתפסו בפונקציה הפנימית
+                statusAudio.textContent = שגיאה כללית: ${error.message};
+                createPodcastBtn.disabled = false;
+                createPodcastBtn.textContent = 'צור פודקאסט שמע';
+            }
+        });
+
+        // הצגת הכפתור רק כאשר יש תסריט מוכן
+        // נצטרך להפעיל אותו כאשר התסריט נוצר או נערך
+        function togglePodcastButtonVisibility() {
+            const script = scriptAreaForPodcast.value.trim();
+            // וגם לוודא שיש לנו API key שמור
+            const apiKey = localStorage.getItem('gemini_api_key');
+            if (script && apiKey) {
+                createPodcastBtn.style.display = 'inline-flex'; // או block
+            } else {
+                createPodcastBtn.style.display = 'none';
+            }
+        }
+
+        // הפעלת הלוגיקה הזו כאשר התסריט מתעדכן או כאשר ה-API Key נטען
+        // לדוגמה, נוסיף event listener ל-scriptAreaForPodcast
+        if (scriptAreaForPodcast) {
+            scriptAreaForPodcast.addEventListener('input', togglePodcastButtonVisibility);
+        }
+        // וגם נבדוק אם יש API key שמור בהתחלה
+        if (localStorage.getItem('gemini_api_key')) {
+            togglePodcastButtonVisibility();
+        }
+        // ניתן גם לקרוא לפונקציה זו לאחר יצירת תסריט או טעינת שיחה שמכילה תסריט.
+    } else {
+        console.error("Elements for podcast generation (createPodcastBtn, audioPlayer, downloadLink, scriptAreaForPodcast, statusAudio) are missing!");
+    }
+    
+
     updateViewState('setup');
 }
 
