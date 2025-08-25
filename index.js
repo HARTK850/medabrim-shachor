@@ -451,7 +451,7 @@ function init() {
                         statusAudio.textContent = 'הפודקאסט נוצר בהצלחה! ניתן להאזין או להוריד.';
                         savePodcastAudioLink.textContent = 'צור שוב'; // Reset text
                         savePodcastAudioLink.style.pointerEvents = 'auto'; // Re-enable link
-                        console.log(Podcast created: ${filename});
+                            console.log(Podcast created: ${filename});
                     },
                     (error) => { // onError callback
                         statusAudio.textContent = שגיאה: ${error};
