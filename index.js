@@ -66,7 +66,7 @@ let totalRounds     = 0;
 let isGenerating    = false;
 let isSharedChatView = false;
 
-const HF_INFERENCE_URL = 'https://api-inference.huggingface.co/models/';
+const HF_BASE_URL      = 'https://api-inference.huggingface.co/models/';
 const STORAGE_KEY_API  = 'hf_ai_chat_api_key';
 const STORAGE_KEY_HIST = 'hf_ai_chat_history';
 
@@ -310,29 +310,90 @@ const HF_MODELS = [
 ];
 
 // =====================================================================
-//  Utility — call Hugging Face Inference API
+//  Build a single prompt string from system + history + new message
+//  Uses the ChatML / Llama-3 / Mistral instruction format
 // =====================================================================
-async function callHuggingFace(modelId, systemPrompt, conversationHistory, userMessage) {
-  // Build the messages array for the chat_completion endpoint
-  const messages = [];
+function buildPromptString(modelId, systemPrompt, conversationHistory, userMessage) {
+  // Detect format family from model id
+  const mid = modelId.toLowerCase();
+  const isLlama3  = mid.includes('llama-3') || mid.includes('llama3');
+  const isMistral = mid.includes('mistral') || mid.includes('mixtral') || mid.includes('zephyr');
+  const isGemma   = mid.includes('gemma');
+  const isPhi3    = mid.includes('phi-3') || mid.includes('phi3');
+  const isQwen    = mid.includes('qwen');
+  const isFalcon  = mid.includes('falcon');
 
-  // System message — tells the model it is an AI talking to another AI
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
+  // ── Llama-3 format ──────────────────────────────────────────────
+  if (isLlama3) {
+    let p = '<|begin_of_text|>';
+    if (systemPrompt) {
+      p += `<|start_header_id|>system<|end_header_id|>\n\n${systemPrompt}<|eot_id|>`;
+    }
+    conversationHistory.forEach((msg, idx) => {
+      const role = idx % 2 === 0 ? 'user' : 'assistant';
+      p += `<|start_header_id|>${role}<|end_header_id|>\n\n${msg.text}<|eot_id|>`;
+    });
+    p += `<|start_header_id|>user<|end_header_id|>\n\n${userMessage}<|eot_id|>`;
+    p += '<|start_header_id|>assistant<|end_header_id|>\n\n';
+    return p;
   }
 
-  // Inject existing conversation history
-  conversationHistory.forEach((msg, idx) => {
-    messages.push({
-      role: idx % 2 === 0 ? 'user' : 'assistant',
-      content: msg.text,
+  // ── Mistral / Mixtral / Zephyr / Hermes ([INST] format) ─────────
+  if (isMistral) {
+    let p = '';
+    if (systemPrompt) p += `<s>[INST] ${systemPrompt} [/INST]\n`;
+    conversationHistory.forEach((msg, idx) => {
+      if (idx % 2 === 0) p += `[INST] ${msg.text} [/INST]\n`;
+      else               p += `${msg.text}</s>\n`;
     });
+    p += `[INST] ${userMessage} [/INST]\n`;
+    return p;
+  }
+
+  // ── Phi-3 format ─────────────────────────────────────────────────
+  if (isPhi3) {
+    let p = '';
+    if (systemPrompt) p += `<|system|>\n${systemPrompt}<|end|>\n`;
+    conversationHistory.forEach((msg, idx) => {
+      const tag = idx % 2 === 0 ? '<|user|>' : '<|assistant|>';
+      p += `${tag}\n${msg.text}<|end|>\n`;
+    });
+    p += `<|user|>\n${userMessage}<|end|>\n<|assistant|>\n`;
+    return p;
+  }
+
+  // ── Gemma format ─────────────────────────────────────────────────
+  if (isGemma) {
+    let p = '';
+    if (systemPrompt) {
+      p += `<start_of_turn>user\n${systemPrompt}\n${userMessage}<end_of_turn>\n<start_of_turn>model\n`;
+      return p;
+    }
+    conversationHistory.forEach((msg, idx) => {
+      const tag = idx % 2 === 0 ? 'user' : 'model';
+      p += `<start_of_turn>${tag}\n${msg.text}<end_of_turn>\n`;
+    });
+    p += `<start_of_turn>user\n${userMessage}<end_of_turn>\n<start_of_turn>model\n`;
+    return p;
+  }
+
+  // ── Generic ChatML (Qwen, OpenChat, Hermes, IBM, etc.) ───────────
+  let p = '';
+  if (systemPrompt) p += `<|im_start|>system\n${systemPrompt}<|im_end|>\n`;
+  conversationHistory.forEach((msg, idx) => {
+    const role = idx % 2 === 0 ? 'user' : 'assistant';
+    p += `<|im_start|>${role}\n${msg.text}<|im_end|>\n`;
   });
+  p += `<|im_start|>user\n${userMessage}<|im_end|>\n<|im_start|>assistant\n`;
+  return p;
+}
 
-  // The new user turn
-  messages.push({ role: 'user', content: userMessage });
-
-  const url = `https://api-inference.huggingface.co/v1/chat/completions`;
+// =====================================================================
+//  Call Hugging Face — /models/{id}  endpoint (CORS-safe)
+// =====================================================================
+async function callHuggingFace(modelId, systemPrompt, conversationHistory, userMessage) {
+  const prompt = buildPromptString(modelId, systemPrompt, conversationHistory, userMessage);
+  const url    = `${HF_BASE_URL}${modelId}`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -341,11 +402,14 @@ async function callHuggingFace(modelId, systemPrompt, conversationHistory, userM
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: modelId,
-      messages: messages,
-      max_tokens: 512,
-      temperature: 0.8,
-      stream: false,
+      inputs: prompt,
+      parameters: {
+        max_new_tokens:   512,
+        temperature:      0.8,
+        do_sample:        true,
+        return_full_text: false,
+        stop: ['<|eot_id|>', '<|im_end|>', '<|end|>', '</s>', '[INST]', '<end_of_turn>'],
+      },
     }),
   });
 
@@ -353,25 +417,23 @@ async function callHuggingFace(modelId, systemPrompt, conversationHistory, userM
     let errMsg = `HTTP ${response.status}`;
     try {
       const errBody = await response.json();
-      if (errBody.error) errMsg = errBody.error;
+      if (errBody.error) errMsg = typeof errBody.error === 'string' ? errBody.error : JSON.stringify(errBody.error);
     } catch (_) {}
 
-    // Friendly Hebrew error messages
     if (response.status === 401) throw new Error('מפתח API לא תקין או פג תוקף. 🔑');
-    if (response.status === 403) throw new Error('גישה נדחתה. ייתכן שהמודל מוגבל. 🚫');
+    if (response.status === 403) throw new Error('גישה נדחתה. ייתכן שהמודל מוגבל — נסה מודל אחר. 🚫');
     if (response.status === 404) throw new Error(`המודל "${modelId}" לא נמצא ב-Hugging Face. 🔎`);
     if (response.status === 429) throw new Error('חרגת ממגבלת הקריאות. נסה שוב בעוד מעט. ⏳');
-    if (response.status === 503) throw new Error('המודל בטעינה — נסה שוב בעוד כמה שניות. 🔄');
-    throw new Error(`שגיאת API: ${errMsg}`);
+    if (response.status === 503) throw new Error('המודל בטעינה — ממתין 20 שניות... 🔄 (נסה שוב)');
+    throw new Error(`שגיאת API (${response.status}): ${errMsg}`);
   }
 
   const data = await response.json();
 
-  // Extract text from response
-  const text =
-    data?.choices?.[0]?.message?.content ||
-    data?.generated_text ||
+  // Extract generated text — HF returns [{generated_text: "..."}] or {generated_text:"..."}
+  let text =
     (Array.isArray(data) && data[0]?.generated_text) ||
+    data?.generated_text ||
     '';
 
   if (!text) throw new Error('המודל החזיר תשובה ריקה. 🤔');
@@ -379,39 +441,30 @@ async function callHuggingFace(modelId, systemPrompt, conversationHistory, userM
 }
 
 // =====================================================================
-//  Validate API Key
+//  Validate API Key — uses the CORS-safe /whoami-v2 endpoint
 // =====================================================================
 async function validateAndSetApiKey(key, isInitialLoad = false) {
   apiKeyStatus.textContent = 'מאמת מפתח עם Hugging Face... ⏳';
-  apiKeyStatus.className = 'status-message';
+  apiKeyStatus.className   = 'status-message';
   validateApiKeyBtn.disabled = true;
 
   try {
-    // Simple test — call a lightweight model
-    const testUrl = 'https://api-inference.huggingface.co/v1/chat/completions';
-    const testRes = await fetch(testUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'mistralai/Mistral-7B-Instruct-v0.3',
-        messages: [{ role: 'user', content: 'Hi' }],
-        max_tokens: 5,
-        stream: false,
-      }),
+    // /whoami-v2 is CORS-enabled and only checks key validity
+    const testRes = await fetch('https://huggingface.co/api/whoami-v2', {
+      headers: { 'Authorization': `Bearer ${key}` },
     });
 
     if (testRes.status === 401 || testRes.status === 403) {
       throw new Error('מפתח לא תקין');
     }
 
-    // 404 / 503 are acceptable — key is valid, model may be sleeping
+    // Any 2xx or 4xx other than 401/403 → key is structurally valid
     hfApiKey = key;
     localStorage.setItem(STORAGE_KEY_API, key);
-    apiKeyStatus.textContent = 'המפתח אושר! ברוך הבא 🎉';
-    apiKeyStatus.className = 'status-message success';
+    const userData = testRes.ok ? await testRes.json() : {};
+    const username = userData?.name ? ` (${userData.name})` : '';
+    apiKeyStatus.textContent = `המפתח אושר${username}! ברוך הבא 🎉`;
+    apiKeyStatus.className   = 'status-message success';
     setTimeout(() => {
       apiKeyModal.classList.remove('show');
       mainContent.classList.remove('hidden');
@@ -419,8 +472,8 @@ async function validateAndSetApiKey(key, isInitialLoad = false) {
 
   } catch (err) {
     console.error('API Key validation error:', err);
-    apiKeyStatus.textContent = 'מפתח לא תקין או שגיאת רשת. 🙁';
-    apiKeyStatus.className = 'status-message error';
+    apiKeyStatus.textContent = 'מפתח לא תקין או שגיאת רשת. בדוק שהמפתח מתחיל ב-hf_ 🙁';
+    apiKeyStatus.className   = 'status-message error';
     localStorage.removeItem(STORAGE_KEY_API);
     hfApiKey = null;
     if (!isInitialLoad) {
@@ -969,12 +1022,25 @@ async function runConversation(rounds, newTopic = null) {
   if (currentChatId) continueChatBtn.classList.remove('hidden');
 }
 
-// Remove any "Assistant:" prefix or instruction leak that some models produce
-function cleanModelOutput(text) {
-  return text
-    .replace(/^(assistant|AI|model):\s*/i, '')
-    .replace(/^\[.*?\]\s*/, '')
-    .trim();
+// Remove prompt leakage, stop tokens, role prefixes that some models echo back
+function cleanModelOutput(raw) {
+  let text = raw;
+
+  // Strip stop / format tokens that might appear at the end
+  const stopTokens = ['<|eot_id|>', '<|im_end|>', '<|end|>', '</s>', '<end_of_turn>',
+                      '[INST]', '[/INST]', '<|endoftext|>', '###'];
+  stopTokens.forEach(tok => {
+    const idx = text.indexOf(tok);
+    if (idx !== -1) text = text.substring(0, idx);
+  });
+
+  // Strip common role prefixes echoed at the start
+  text = text
+    .replace(/^(assistant|AI|model|user|human|bot)\s*:\s*/i, '')
+    .replace(/^<\|.*?\|>\s*/g, '')
+    .replace(/^\[.*?\]\s*/, '');
+
+  return text.trim();
 }
 
 function updateProgress() {
